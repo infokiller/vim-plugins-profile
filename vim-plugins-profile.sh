@@ -3,7 +3,7 @@
 # Copyright 2015-2019, Hörmet Yiltiz <hyiltiz@github.com>
 # Released under GNU GPL version 3 or later.
 
-set -eu
+set -o errexit -o errtrace -o nounset -o pipefail
 # set -x
 
 echo "Generating vim startup profile..."
@@ -13,52 +13,33 @@ if [ -f $logfile ]; then
   # clear the log file first
   rm $logfile
 fi
+VIM_BIN="${VIM_BIN:-vim}"
+echo "Using vim binary: $(realpath "$(command -v "${VIM_BIN}")")"
 
 if [[ $# -eq 0 ]]; then
-  vim --startuptime $logfile -c q
+  "${VIM_BIN}" --startuptime $logfile -c q
 else
-  vim --startuptime $logfile $1
+  "${VIM_BIN}" --startuptime $logfile "$1"
 fi
 
-
-echo 'Assuming your vimfiles folder as `~/.vim/`'
-vimfilesDir="$HOME/.vim/"
-
-plugDir=""
-if [ -d "${vimfilesDir}plugged" ]; then
-  echo "vim-plug has been detected."
-  plugDir="plugged"
-elif [ -d "${vimfilesDir}bundle" ]; then
-  echo "NeoBundle/Vundle/Pathogen has been detected."
-  plugDir="bundle"
-else
-  echo "Cannot tell your plugin-manager. Adjust this bash script\n"
-  echo "to meet your own needs for now."
-  echo 'Cue: `plugDir` variable would be a good starting place.'
-  exit 1
-fi
-
-
+plugDir="${HOME}/submodules/vim_plugins"
 
 echo "Parsing vim startup profile..."
 # logfile=hi.log
 # cat $logfile
-grep $plugDir $logfile > tmp.log
-awk -F\: '{print $1}' tmp.log > tmp1.log
-awk -F\: '{print $2}' tmp.log | awk -F\: '{print $2}' tmp.log | sed "s/.*${plugDir}\///g"|sed 's/\/.*//g' > tmp2.log
+grep "$plugDir" "$logfile" > tmp.log
+awk -F':' '{print $1}' tmp.log > tmp1.log
+awk -F':' '{print $2}' tmp.log | awk -F':' '{print $2}' tmp.log | sed "s%.*${plugDir}\/%%g"|sed 's/\/.*//g' > tmp2.log
 paste -d ',' tmp1.log tmp2.log | tr -s ' ' ',' > profile.csv
 rm tmp.log tmp1.log tmp2.log
 rm $logfile
-
-
-
 
 # Let's do the R magic!
 echo "Crunching data and generating profile plot ..."
 
 # Check if R is available
 echo " "
-type R > /dev/null 2>&1 || { echo >&2 "Package R is required but it's not installed. \nPlease install R using your package manager, \nor check out cran.r-project.org for instructions. \nAborting."; exit 1; }
+type R > /dev/null 2>&1 || { printf >&2 "Package R is required but it's not installed. \nPlease install R using your package manager, \nor check out cran.r-project.org for instructions. \nAborting.\n"; exit 1; }
 
 
 # Still here? Great! Let's move on!
@@ -73,7 +54,7 @@ rm profile.csv
 
 echo " "
 echo 'Your plugins startup profile graph is saved '
-echo 'as `result.png` under current directory.'
+echo 'as "result.png" under current directory.'
 echo " "
 echo "=========================================="
 echo "Top 10 Plugins That Slows Down Vim Startup"
